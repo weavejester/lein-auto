@@ -1,7 +1,9 @@
 (ns leiningen.auto
   (:require [clojure.java.io :as io]
+            [clojure.set :refer [project]]
             [leiningen.core.main :as main])
-  (:import (java.io File)))
+  (:import (clojure.lang ExceptionInfo)
+           (java.io File)))
 
 (defn project-files [project]
   (file-seq (io/file (:root project))))
@@ -19,6 +21,12 @@
 
 (def default-file-pattern #"\.(clj|cljs|cljx)$")
 
+(defn run-task [project task args]
+  (binding [main/*exit-process?* false]
+    (try
+      (main/resolve-and-apply project (cons task args))
+      (catch ExceptionInfo _))))
+
 (defn auto
   "Executes the given task every time a file in the project is modified."
   [project task & args]
@@ -27,6 +35,6 @@
     (if-let [files (->> (modified-files project time)
                         (grep default-file-pattern)
                         (seq))]
-      (do (main/resolve-and-apply project (cons task args))
+      (do (run-task project task args)
           (recur (System/currentTimeMillis)))
       (recur time))))
