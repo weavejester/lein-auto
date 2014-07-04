@@ -13,10 +13,17 @@
        (remove #(.isDirectory ^File %))
        (filter #(modified-since % timestamp))))
 
+(defn grep [re coll]
+  (filter #(re-find re (str %)) coll))
+
+(def default-file-pattern #"\.(clj|cljs|cljx)$")
+
 (defn auto [project & args]
   (loop [time 0]
     (Thread/sleep 100)
-    (if-let [files (seq (modified-files project time))]
+    (if-let [files (->> (modified-files project time)
+                        (grep default-file-pattern)
+                        (seq))]
       (do (prn files)
           (recur (System/currentTimeMillis)))
       (recur time))))
