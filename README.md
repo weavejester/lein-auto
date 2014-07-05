@@ -1,26 +1,61 @@
-# lein-auto
+# Lein-Auto
 
-A Leiningen plugin to do many wonderful things.
+A [Leiningen] plugin that watches the project directory and executes a
+task when it detects changes to files matching a set pattern.
+
+[Leiningen]: https://github.com/technomancy/leiningen
 
 ## Usage
 
-FIXME: Use this for user-level plugins:
+Add `lein-auto` as a plugin dependency to your project or profiles.
 
-Put `[lein-auto "0.1.0-SNAPSHOT"]` into the `:plugins` vector of your
-`:user` profile, or if you are on Leiningen 1.x do `lein plugin install
-lein-auto 0.1.0-SNAPSHOT`.
+```clojure
+:plugins [[lein-auto "0.1.0-SNAPSHOT"]]
+```
 
-FIXME: Use this for project-level plugins:
+Then add `auto` to the beginning of any command you want to be
+executed when file changes are detected. For example:
 
-Put `[lein-auto "0.1.0-SNAPSHOT"]` into the `:plugins` vector of your project.clj.
+```
+lein auto test
+```
 
-FIXME: and add an example usage that actually makes sense:
+This will run `lein test` every time it detects a change to a file.
+You can stop it running with Ctrl-C.
 
-    $ lein auto
+By default only `.clj`, `.cljs` and `.cljx` files are watched. You can
+change this by adding some extra configuration to your project file:
+
+```clojure
+:auto {:default {:file-pattern #"\.(clj|cljs|cljx|edn)$"}
+```
+
+The `:default` key will apply this option to all tasks, but you can
+also apply options to a specific task:
+
+```clojure
+:auto {"test" {:file-pattern #"\.(clj|cljs|cljx|edn)$"}
+```
+
+There are currently three options available:
+
+- `:file-pattern` -
+  a regular expression that determine which files to watch (defaults
+  to `\.(clj|cljs|cljx)$`).
+
+- `:wait-time` -
+  the time to wait in milliseconds between polling the filesystem
+  (defaults to 50)
+
+- `:log-color` -
+  the color of the Lein-Auto log messages (defaults to `:magenta`).
+  The following colors are allowed: black gray white red green yellow
+  blue magenta cyan bright-red bright-green bright-yellow bright-blue
+  bright-magenta bright-cyan bright-white.
 
 ## License
 
-Copyright © 2014 FIXME
+Copyright © 2014 James Reeves
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
