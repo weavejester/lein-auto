@@ -21,14 +21,16 @@
 
 (def default-file-pattern #"\.(clj|cljs|cljx)$")
 
+(defn log [& strs]
+  (println (str "auto> " (str/join " " strs))))
+
 (defn run-task [project task args]
-  (println "Running: lein" task (str/join " " args))
+  (log "Running: lein" task (str/join " " args))
   (binding [main/*exit-process?* false]
     (try
       (main/resolve-and-apply project (cons task args))
       (catch ExceptionInfo _)))
-  (println "Done.")
-  (println "---"))
+  (log "Done."))
 
 (defn add-ending-separator [^String path]
   (if (.endsWith path File/separator)
@@ -43,7 +45,7 @@
 (defn show-modified [project files]
   (let [root  (add-ending-separator (:root project))
         paths (map #(remove-prefix (str %) root) files)]
-    (println "Files changed:" (str/join ", " paths))))
+    (log "Files changed:" (str/join ", " paths))))
 
 (defn auto
   "Executes the given task every time a file in the project is modified."
