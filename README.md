@@ -10,7 +10,7 @@ task when it detects changes to files matching a set pattern.
 Add `lein-auto` as a plugin dependency to your project or profiles.
 
 ```clojure
-:plugins [[lein-auto "0.1.0"]]
+:plugins [[lein-auto "0.1.1"]]
 ```
 
 ## Usage

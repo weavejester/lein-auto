@@ -1,4 +1,4 @@
-(defproject lein-auto "0.1.0"
+(defproject lein-auto "0.1.1"
   :description "Leiningen plugin that executes tasks when files are modified"
   :url "https://github.com/weavejester/lein-auto"
   :license {:name "Eclipse Public License"
