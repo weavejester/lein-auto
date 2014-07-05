@@ -19,8 +19,6 @@
 (defn grep [re coll]
   (filter #(re-find re (str %)) coll))
 
-(def default-file-pattern #"\.(clj|cljs|cljx)$")
-
 (def ansi-codes
   {:reset   "\u001b[0m"
    :black   "\u001b[30m" :gray           "\u001b[1m\u001b[30m"
@@ -33,23 +31,17 @@
    :white   "\u001b[37m" :bright-white   "\u001b[1m\u001b[37m"
    :default "\u001b[39m"})
 
-(defn ansi [code & [default]]
-  (str (ansi-codes code (ansi-codes default))))
-
-(defn log [project & strs]
-  (let [color (get-in project [:auto :color] true)
-        text  (str/join " " strs)]
-    (if color
-      (println (str (ansi color :magenta) "auto> " text (ansi :reset)))
+(defn log [{:keys [log-color]} & strs]
+  (let [text (str/join " " strs)]
+    (if log-color
+      (println (str (ansi-codes log-color) "auto> " text (ansi-codes :reset)))
       (println (str "auto> " text)))))
 
 (defn run-task [project task args]
-  (log project "Running: lein" task (str/join " " args))
   (binding [main/*exit-process?* false]
     (try
       (main/resolve-and-apply project (cons task args))
-      (catch ExceptionInfo _)))
-  (log project "Done."))
+      (catch ExceptionInfo _))))
 
 (defn add-ending-separator [^String path]
   (if (.endsWith path File/separator)
@@ -64,17 +56,27 @@
 (defn show-modified [project files]
   (let [root  (add-ending-separator (:root project))
         paths (map #(remove-prefix (str %) root) files)]
-    (log project "Files changed:" (str/join ", " paths))))
+    (str/join ", " paths)))
+
+(def default-config
+  {:file-pattern #"\.(clj|cljs|cljx)$"
+   :wait-time    50
+   :log-color    :magenta})
 
 (defn auto
   "Executes the given task every time a file in the project is modified."
   [project task & args]
-  (loop [time 0]
-    (Thread/sleep 100)
-    (if-let [files (->> (modified-files project time)
-                        (grep default-file-pattern)
-                        (seq))]
-      (do (show-modified project files)
-          (run-task project task args)
-          (recur (System/currentTimeMillis)))
-      (recur time))))
+  (let [config (merge default-config
+                      (get-in project [:auto :default])
+                      (get-in project [:auto task]))]
+    (loop [time 0]
+      (Thread/sleep (:wait-time config))
+      (if-let [files (->> (modified-files project time)
+                          (grep (:file-pattern config))
+                          (seq))]
+        (do (log config "Files changed:" (show-modified project files))
+            (log config "Running: lein" task (str/join " " args))
+            (run-task project task args)
+            (log config "Done.")
+            (recur (System/currentTimeMillis)))
+        (recur time)))))
