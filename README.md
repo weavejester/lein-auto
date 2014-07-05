@@ -5,7 +5,7 @@ task when it detects changes to files matching a set pattern.
 
 [Leiningen]: https://github.com/technomancy/leiningen
 
-## Usage
+## Installation
 
 Add `lein-auto` as a plugin dependency to your project or profiles.
 
@@ -13,8 +13,10 @@ Add `lein-auto` as a plugin dependency to your project or profiles.
 :plugins [[lein-auto "0.1.0-SNAPSHOT"]]
 ```
 
-Then add `auto` to the beginning of any command you want to be
-executed when file changes are detected. For example:
+## Usage
+
+Add `auto` to the beginning of any command you want to be executed
+when file changes are detected. For example:
 
 ```
 lein auto test
@@ -41,7 +43,7 @@ There are currently three options available:
 
 - `:file-pattern` -
   a regular expression that determine which files to watch (defaults
-  to `\.(clj|cljs|cljx)$`).
+  to `#"\.(clj|cljs|cljx)$"`).
 
 - `:wait-time` -
   the time to wait in milliseconds between polling the filesystem
