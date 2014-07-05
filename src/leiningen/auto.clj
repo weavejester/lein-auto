@@ -39,9 +39,7 @@
 
 (defn run-task [project task args]
   (binding [main/*exit-process?* false]
-    (try
-      (main/resolve-and-apply project (cons task args))
-      (catch ExceptionInfo _))))
+    (main/resolve-and-apply project (cons task args))))
 
 (defn add-ending-separator [^String path]
   (if (.endsWith path File/separator)
@@ -76,7 +74,10 @@
                           (seq))]
         (do (log config "Files changed:" (show-modified project files))
             (log config "Running: lein" task (str/join " " args))
-            (run-task project task args)
-            (log config "Done.")
+            (try
+              (run-task project task args)
+              (log config "Completed.")
+              (catch ExceptionInfo _
+                (log config "Failed.")))
             (recur (System/currentTimeMillis)))
         (recur time)))))
