@@ -75,12 +75,13 @@
                           (grep (:file-pattern config))
                           (modified-files time)
                           (seq))]
-        (do (log config "Files changed:" (show-modified project files))
-            (log config "Running: lein" task (str/join " " args))
-            (try
-              (run-task project task args)
-              (log config "Completed.")
-              (catch ExceptionInfo _
-                (log config "Failed.")))
-            (recur (System/currentTimeMillis)))
+        (let [time (System/currentTimeMillis)]
+          (log config "Files changed:" (show-modified project files))
+          (log config "Running: lein" task (str/join " " args))
+          (try
+            (run-task project task args)
+            (log config "Completed.")
+            (catch ExceptionInfo _
+              (log config "Failed.")))
+          (recur time))
         (recur time)))))
