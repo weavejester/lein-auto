@@ -55,6 +55,9 @@ There are currently three options available:
   blue magenta cyan bright-red bright-green bright-yellow bright-blue
   bright-magenta bright-cyan bright-white.
 
+- `:paths` -
+  a seq of paths to check for changes (defaults to the project's root).
+
 ## License
 
 Copyright © 2014 James Reeves

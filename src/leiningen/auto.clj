@@ -5,16 +5,16 @@
   (:import (clojure.lang ExceptionInfo)
            (java.io File)))
 
-(defn project-files [project]
-  (file-seq (io/file (:root project))))
+(defn project-files [path]
+  (file-seq (io/file path)))
 
 (defn modified-since [^File file timestamp]
   (> (.lastModified file) timestamp))
 
-(defn modified-files [project timestamp]
-  (->> (project-files project)
-       (remove #(.isDirectory ^File %))
-       (filter #(modified-since % timestamp))))
+(defn modified-files [paths timestamp]
+  (->> (reduce #(into % (project-files %2)) [] paths)
+    (remove #(.isDirectory ^File %))
+    (filter #(modified-since % timestamp))))
 
 (defn grep [re coll]
   (filter #(re-find re (str %)) coll))
@@ -57,21 +57,25 @@
     (str/join ", " paths)))
 
 (def default-config
-  {:file-pattern #"\.(clj|cljs|cljx)$"
-   :wait-time    50
-   :log-color    :magenta})
+  (fn [project]
+    {:file-pattern #"\.(clj|cljs|cljx)$"
+     :wait-time    50
+     :log-color    :magenta
+     :paths (:root project)}))
 
 (defn auto
   "Executes the given task every time a file in the project is modified."
   [project task & args]
-  (let [config (merge default-config
-                      (get-in project [:auto :default])
-                      (get-in project [:auto task]))]
+  (let [default (default-config project)
+        config (merge default
+                 (get-in project [:auto :default])
+                 (get-in project [:auto task])
+                 {:paths (get-in project [:auto :paths])})]
     (loop [time 0]
       (Thread/sleep (:wait-time config))
-      (if-let [files (->> (modified-files project time)
-                          (grep (:file-pattern config))
-                          (seq))]
+      (if-let [files (->> (modified-files (:paths config) time)
+                       (grep (:file-pattern config))
+                       (seq))]
         (do (log config "Files changed:" (show-modified project files))
             (log config "Running: lein" task (str/join " " args))
             (try
