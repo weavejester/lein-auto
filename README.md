@@ -61,7 +61,7 @@ There are currently four options available:
 
 ## License
 
-Copyright © 2014 James Reeves
+Copyright © 2015 James Reeves
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
