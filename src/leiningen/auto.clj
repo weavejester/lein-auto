@@ -2,8 +2,8 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [leiningen.core.main :as main])
-  (:import (clojure.lang ExceptionInfo)
-           (java.io File)))
+  (:import [clojure.lang ExceptionInfo]
+           [java.io File]))
 
 (defn directory-files [dir]
   (->> (io/file dir) (file-seq) (remove (memfn isDirectory))))
