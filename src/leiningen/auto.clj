@@ -6,14 +6,10 @@
            (java.io File)))
 
 (defn directory-files [dir]
-  (file-seq (io/file dir)))
+  (->> (io/file dir) (file-seq) (remove (memfn isDirectory))))
 
 (defn modified-since [^File file timestamp]
   (> (.lastModified file) timestamp))
-
-(defn modified-files [timestamp files]
-  (->> (remove #(.isDirectory ^File %) files)
-       (filter #(modified-since % timestamp))))
 
 (defn grep [re coll]
   (filter #(re-find re (str %)) coll))
@@ -73,7 +69,7 @@
       (Thread/sleep (:wait-time config))
       (if-let [files (->> (mapcat directory-files (:paths config))
                           (grep (:file-pattern config))
-                          (modified-files time)
+                          (filter #(modified-since % time))
                           (seq))]
         (let [time (System/currentTimeMillis)]
           (log config "Files changed:" (show-modified project files))
