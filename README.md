@@ -41,6 +41,10 @@ also apply options to a specific task:
 
 There are currently four options available:
 
+- `:paths` -
+  list of directories scanned for files. (defaults to concatenation
+  of project `:source-paths`, `:java-source-paths` and `:test-paths`).
+
 - `:file-pattern` -
   a regular expression that determine which files to watch (defaults
   to `#"\.(clj|cljs|cljx)$"`).
@@ -54,10 +58,6 @@ There are currently four options available:
   The following colors are allowed: black gray white red green yellow
   blue magenta cyan bright-red bright-green bright-yellow bright-blue
   bright-magenta bright-cyan bright-white.
-
-- `:paths` -
-  list of directories scanned for files. (defaults to concatenation
-  of project `:source-paths`, `:java-source-paths` and `:test-paths`).
 
 ## License
 
