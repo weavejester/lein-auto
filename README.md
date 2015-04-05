@@ -1,7 +1,7 @@
 # Lein-Auto
 
-A [Leiningen] plugin that watches the project directories and executes a
-task when it detects changes to files matching a set pattern.
+A [Leiningen][] plugin that watches the project source directories, and
+executes a task when it detects changes to files matching a set pattern.
 
 [Leiningen]: https://github.com/technomancy/leiningen
 
@@ -57,7 +57,7 @@ There are currently four options available:
 
 - `:paths` -
   list of directories scanned for files. (defaults to concatenation
-  of project :source-paths, :java-source-paths and test-paths).
+  of project `:source-paths`, `:java-source-paths` and `:test-paths`).
 
 ## License
 
