@@ -56,13 +56,16 @@
    :wait-time    50
    :log-color    :magenta})
 
+(defn default-paths [project]
+  (concat (:source-paths project)
+          (:java-source-paths project)
+          (:test-paths project)))
+
 (defn auto
   "Executes the given task every time a file in the project is modified."
   [project task & args]
   (let [config (merge default-config
-                      {:paths (concat (get project :source-paths)
-                                      (get project :java-source-paths)
-                                      (get project :test-paths))}
+                      {:paths (default-paths project)}
                       (get-in project [:auto :default])
                       (get-in project [:auto task]))]
     (loop [time 0]
