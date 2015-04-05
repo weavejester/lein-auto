@@ -1,6 +1,6 @@
 # Lein-Auto
 
-A [Leiningen] plugin that watches the project directory and executes a
+A [Leiningen] plugin that watches the project directories and executes a
 task when it detects changes to files matching a set pattern.
 
 [Leiningen]: https://github.com/technomancy/leiningen
@@ -39,7 +39,7 @@ also apply options to a specific task:
 :auto {"test" {:file-pattern #"\.(clj|cljs|cljx|edn)$"}
 ```
 
-There are currently three options available:
+There are currently four options available:
 
 - `:file-pattern` -
   a regular expression that determine which files to watch (defaults
@@ -54,6 +54,10 @@ There are currently three options available:
   The following colors are allowed: black gray white red green yellow
   blue magenta cyan bright-red bright-green bright-yellow bright-blue
   bright-magenta bright-cyan bright-white.
+
+- `:paths` -
+  list of directories scanned for files. (defaults to concatenation
+  of project :source-paths, :java-source-paths and test-paths).
 
 ## License
 

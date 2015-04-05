@@ -5,15 +5,14 @@
   (:import (clojure.lang ExceptionInfo)
            (java.io File)))
 
-(defn project-files [project]
-  (file-seq (io/file (:root project))))
+(defn directory-files [dir]
+  (file-seq (io/file dir)))
 
 (defn modified-since [^File file timestamp]
   (> (.lastModified file) timestamp))
 
-(defn modified-files [project timestamp]
-  (->> (project-files project)
-       (remove #(.isDirectory ^File %))
+(defn modified-files [timestamp files]
+  (->> (remove #(.isDirectory ^File %) files)
        (filter #(modified-since % timestamp))))
 
 (defn grep [re coll]
@@ -65,19 +64,24 @@
   "Executes the given task every time a file in the project is modified."
   [project task & args]
   (let [config (merge default-config
+                      {:paths (concat (get project :source-paths)
+                                      (get project :java-source-paths)
+                                      (get project :test-paths))}
                       (get-in project [:auto :default])
                       (get-in project [:auto task]))]
     (loop [time 0]
       (Thread/sleep (:wait-time config))
-      (if-let [files (->> (modified-files project time)
+      (if-let [files (->> (mapcat directory-files (:paths config))
                           (grep (:file-pattern config))
+                          (modified-files time)
                           (seq))]
-        (do (log config "Files changed:" (show-modified project files))
-            (log config "Running: lein" task (str/join " " args))
-            (try
-              (run-task project task args)
-              (log config "Completed.")
-              (catch ExceptionInfo _
-                (log config "Failed.")))
-            (recur (System/currentTimeMillis)))
+        (let [time (System/currentTimeMillis)]
+          (log config "Files changed:" (show-modified project files))
+          (log config "Running: lein" task (str/join " " args))
+          (try
+            (run-task project task args)
+            (log config "Completed.")
+            (catch ExceptionInfo _
+              (log config "Failed.")))
+          (recur time))
         (recur time)))))
