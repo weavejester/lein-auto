@@ -52,7 +52,7 @@
     (str/join ", " paths)))
 
 (def default-config
-  {:file-pattern #"\.(clj|cljs|cljx)$"
+  {:file-pattern #"\.(clj|cljs|cljx|cljc)$"
    :wait-time    50
    :log-color    :magenta})
 
