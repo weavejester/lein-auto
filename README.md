@@ -25,18 +25,18 @@ lein auto test
 This will run `lein test` every time it detects a change to a file.
 You can stop it running with Ctrl-C.
 
-By default only `.clj`, `.cljs` and `.cljx` files are watched. You can
+By default only `.clj`, `.cljs`, `cljx` and `.cljc` files are watched. You can
 change this by adding some extra configuration to your project file:
 
 ```clojure
-:auto {:default {:file-pattern #"\.(clj|cljs|cljx|edn)$"}
+:auto {:default {:file-pattern #"\.(clj|cljs|cljx|cljc|edn)$"}
 ```
 
 The `:default` key will apply this option to all tasks, but you can
 also apply options to a specific task:
 
 ```clojure
-:auto {"test" {:file-pattern #"\.(clj|cljs|cljx|edn)$"}
+:auto {"test" {:file-pattern #"\.(clj|cljs|cljx|cljc|edn)$"}
 ```
 
 There are currently four options available:
@@ -47,7 +47,7 @@ There are currently four options available:
 
 - `:file-pattern` -
   a regular expression that determine which files to watch (defaults
-  to `#"\.(clj|cljs|cljx)$"`).
+  to `#"\.(clj|cljs|cljx|cljc)$"`).
 
 - `:wait-time` -
   the time to wait in milliseconds between polling the filesystem
