@@ -57,21 +57,34 @@
    :log-color    :magenta
    :paths        [:source-paths :java-source-paths :test-paths]})
 
+(defn merge-config
+  ([]
+   default-config)
+  ([l]
+   l)
+  ([l r]
+   (cond-> (merge l r)
+     (and (:paths l) (:paths r))
+     (assoc :paths (concat (:paths l) (:paths r)))))
+  ([l r m & more]
+   (apply merge-config (merge-config (merge-config l r) m) more)))
+
 (defn compute-config [project config]
   (-> config
       (update :paths (fn [paths]
-                       (mapcat (fn [path-or-key]
-                                 (if (keyword? path-or-key)
-                                   (get project path-or-key)
-                                   [path-or-key]))
-                               paths)))))
+                       (-> (mapcat (fn [path-or-key]
+                                     (if (keyword? path-or-key)
+                                       (get project path-or-key)
+                                       [path-or-key]))
+                                   paths)
+                           set seq)))))
 
 (defn auto
   "Executes the given task every time a file in the project is modified."
   [project task & args]
-  (let [config (->> (merge default-config 
-                           (get-in project [:auto :default])
-                           (get-in project [:auto task]))
+  (let [config (->> (merge-config default-config
+                                  (get-in project [:auto :default])
+                                  (get-in project [:auto task]))
                     (compute-config project))]
     (loop [time 0]
       (Thread/sleep (:wait-time config))
