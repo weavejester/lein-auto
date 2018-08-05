@@ -49,10 +49,6 @@ There are currently four options available:
   a regular expression that determine which files to watch (defaults
   to `#"\.(clj|cljs|cljx|cljc)$"`).
 
-- `:wait-time` -
-  the time to wait in milliseconds between polling the filesystem
-  (defaults to 50)
-
 - `:log-color` -
   the color of the Lein-Auto log messages (defaults to `:magenta`).
   The following colors are allowed: black gray white red green yellow
