@@ -63,24 +63,28 @@
           (:java-source-paths project)
           (:test-paths project)))
 
-(def watchkeys (atom {}))
+(def watched-dirs (atom {}))
+
+(def watch-service
+  (delay (.newWatchService (FileSystems/getDefault))))
 
 (defn path-from-event [watchkey evt]
-  (str (get @watchkeys watchkey) "/" (-> evt .context .toString)))
+  (str (get @watched-dirs watchkey) "/" (-> evt .context .toString)))
 
-(defn make-watcher [watcher dir]
-  (.register (.toPath dir) watcher
-    (into-array [StandardWatchEventKinds/ENTRY_CREATE
-                StandardWatchEventKinds/ENTRY_MODIFY
-                StandardWatchEventKinds/ENTRY_DELETE])
-    (into-array [SensitivityWatchEventModifier/HIGH])))
+(defn watch-dir! [dir]
+  (let [key (.register (.toPath dir) @watch-service
+              (into-array [StandardWatchEventKinds/ENTRY_CREATE
+                          StandardWatchEventKinds/ENTRY_MODIFY
+                          StandardWatchEventKinds/ENTRY_DELETE])
+              (into-array [SensitivityWatchEventModifier/HIGH]))]
+    (swap! watched-dirs assoc key dir)))
 
-(defn add-new-directories [watcher watchkey events]
+(defn add-new-directories [watchkey events]
   (doseq [evt events
           :let [dir (io/file (path-from-event watchkey evt))]]
     (if (and (= (.kind evt) StandardWatchEventKinds/ENTRY_CREATE)
              (.isDirectory dir))
-      (swap! watchkeys assoc (make-watcher watcher dir) dir))))
+      (watch-dir! dir))))
 
 (defn modified-files [watchkey events]
   (map #(path-from-event watchkey %) events))
@@ -91,18 +95,14 @@
   (let [config (merge default-config
                       {:paths (default-paths project)}
                       (get-in project [:auto :default])
-                      (get-in project [:auto task]))
-        directories (mapcat subdirectories (:paths config))
-        watcher (.newWatchService (FileSystems/getDefault))
-        new-watchkeys (apply merge
-              (for [dir directories]
-                    {(make-watcher watcher dir) dir}))]
-      (reset! watchkeys new-watchkeys)
+                      (get-in project [:auto task]))]
+      (doseq [dir (mapcat subdirectories (:paths config))]
+        (watch-dir! dir))
       (log config "lein-auto now watching:" (:paths config))
       (while true
-        (let [key (.take watcher)
+        (let [key (.take @watch-service)
               events (.pollEvents key)]
-          (add-new-directories watcher key events)
+          (add-new-directories key events)
           (log config "Files changed:" (str/join " " (modified-files key events)))
           (log config "Running: lein" task (str/join " " args))
           (try
@@ -111,4 +111,4 @@
             (catch ExceptionInfo _
               (log config "Failed.")))
           (if (not (.reset key))
-            (swap! watchkeys dissoc key))))))
+            (swap! watched-dirs dissoc key))))))
