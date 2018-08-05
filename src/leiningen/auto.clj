@@ -38,21 +38,6 @@
   (binding [main/*exit-process?* false]
     (main/resolve-and-apply project (cons task args))))
 
-(defn add-ending-separator [^String path]
-  (if (.endsWith path File/separator)
-    path
-    (str path File/separator)))
-
-(defn remove-prefix [^String s ^String prefix]
-  (if (.startsWith s prefix)
-    (subs s (.length prefix))
-    s))
-
-(defn show-modified [project files]
-  (let [root  (add-ending-separator (:root project))
-        paths (map #(remove-prefix (str %) root) files)]
-    (str/join ", " paths)))
-
 (def default-config
   {:file-pattern #"\.(clj|cljs|cljx|cljc)$"
    :log-color    :magenta})
@@ -105,7 +90,7 @@
           (add-new-directories key events)
           (if (not (empty? modified))
             (do
-              (log config "Files changed:" (str/join " " modified))
+              (log config "Files changed:" (str/join ", " modified))
               (log config "Running: lein" task (str/join " " args))
               (try
                 (run-task project task args)
