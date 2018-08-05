@@ -7,7 +7,7 @@
            [com.sun.nio.file SensitivityWatchEventModifier]
            [java.io File]))
 
-(defn directory-directories [dir]
+(defn subdirectories [dir]
   (->> (io/file dir) (file-seq) (filter (memfn isDirectory))))
 
 (defn modified-since [^File file timestamp]
@@ -70,15 +70,16 @@
                       {:paths (default-paths project)}
                       (get-in project [:auto :default])
                       (get-in project [:auto task]))
-        directories (->> (mapcat directory-directories (:paths config))
-                          (seq))
-        fs (FileSystems/getDefault)
-        watcher (.newWatchService fs)
+        directories (mapcat subdirectories (:paths config))
+        watcher (.newWatchService (FileSystems/getDefault))
         keys (apply merge
               (for [dir directories]
                 (let [p (.toPath dir)
                       key (.register p watcher
-                        (into-array [StandardWatchEventKinds/ENTRY_CREATE StandardWatchEventKinds/ENTRY_MODIFY StandardWatchEventKinds/ENTRY_DELETE])
+                        (into-array [
+                          StandardWatchEventKinds/ENTRY_CREATE
+                          StandardWatchEventKinds/ENTRY_MODIFY
+                          StandardWatchEventKinds/ENTRY_DELETE])
                         (into-array [SensitivityWatchEventModifier/HIGH]))]
                     {key dir})))]
       (log config "lein-auto now watching:" (:paths config))
