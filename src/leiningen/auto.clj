@@ -55,7 +55,6 @@
 
 (def default-config
   {:file-pattern #"\.(clj|cljs|cljx|cljc)$"
-   :wait-time    50
    :log-color    :magenta})
 
 (defn default-paths [project]
