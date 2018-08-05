@@ -100,14 +100,17 @@
       (log config "lein-auto now watching:" (:paths config))
       (while true
         (let [key (.take @watch-service)
-              events (.pollEvents key)]
+              events (.pollEvents key)
+              modified (grep (:file-pattern config) (modified-files key events))]
           (add-new-directories key events)
-          (log config "Files changed:" (str/join " " (modified-files key events)))
-          (log config "Running: lein" task (str/join " " args))
-          (try
-            (run-task project task args)
-            (log config "Completed.")
-            (catch ExceptionInfo _
-              (log config "Failed.")))
+          (if (not (empty? modified))
+            (do
+              (log config "Files changed:" (str/join " " modified))
+              (log config "Running: lein" task (str/join " " args))
+              (try
+                (run-task project task args)
+                (log config "Completed.")
+                (catch ExceptionInfo _
+                  (log config "Failed.")))))
           (if (not (.reset key))
             (swap! watched-dirs dissoc key))))))
