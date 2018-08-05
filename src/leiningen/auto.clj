@@ -84,20 +84,20 @@
                         (into-array [StandardWatchEventKinds/ENTRY_CREATE StandardWatchEventKinds/ENTRY_MODIFY StandardWatchEventKinds/ENTRY_DELETE])
                         (into-array [SensitivityWatchEventModifier/HIGH]))]
                     {key dir})))]
-      (log config "booted")
+      (log config "lein-auto now watching:" (:paths config))
       (loop [keys keys]
         (let [key (.take watcher)]
           (if (contains? keys key)
-            (doseq [event (.pollEvents key) :let [fp (str (get keys key) "/" (-> event .context .toString))]]
-              (log config fp))
-          )
-          (.reset key)
-        )
-        (recur keys)
-        )))
-          ; (log config "Running: lein" task (str/join " " args))
-          ; (try
-          ;   (run-task project task args)
-          ;   (log config "Completed.")
-          ;   (catch ExceptionInfo _
-          ;     (log config "Failed."))))))
+            (do
+              (doseq [event (.pollEvents key) :let [fp (str (get keys key) "/" (-> event .context .toString))]]
+                (log config "Changes to:" fp))
+              (log config "Running: lein" task (str/join " " args))
+              (try
+                (run-task project task args)
+                (log config "Completed.")
+                (catch ExceptionInfo _
+                  (log config "Failed.")))
+              (if (.reset key)
+                (recur keys)
+                (recur (dissoc key key))))
+            (recur keys))))))
