@@ -3,10 +3,15 @@
             [clojure.string :as str]
             [leiningen.core.main :as main])
   (:import [clojure.lang ExceptionInfo]
+           [java.nio.file FileSystems StandardWatchEventKinds]
+           [com.sun.nio.file SensitivityWatchEventModifier]
            [java.io File]))
 
 (defn directory-files [dir]
   (->> (io/file dir) (file-seq) (remove (memfn isDirectory))))
+
+  (defn directory-directories [dir]
+    (->> (io/file dir) (file-seq) (filter (memfn isDirectory))))
 
 (defn modified-since [^File file timestamp]
   (> (.lastModified file) timestamp))
@@ -67,20 +72,32 @@
   (let [config (merge default-config
                       {:paths (default-paths project)}
                       (get-in project [:auto :default])
-                      (get-in project [:auto task]))]
-    (loop [time 0]
-      (Thread/sleep (:wait-time config))
-      (if-let [files (->> (mapcat directory-files (:paths config))
-                          (grep (:file-pattern config))
-                          (filter #(modified-since % time))
-                          (seq))]
-        (let [time (System/currentTimeMillis)]
-          (log config "Files changed:" (show-modified project files))
-          (log config "Running: lein" task (str/join " " args))
-          (try
-            (run-task project task args)
-            (log config "Completed.")
-            (catch ExceptionInfo _
-              (log config "Failed.")))
-          (recur time))
-        (recur time)))))
+                      (get-in project [:auto task]))
+        directories (->> (mapcat directory-directories (:paths config))
+                          (seq))
+        fs (FileSystems/getDefault)
+        watcher (.newWatchService fs)
+        keys (apply merge
+              (for [dir directories]
+                (let [p (.toPath dir)
+                      key (.register p watcher
+                        (into-array [StandardWatchEventKinds/ENTRY_CREATE StandardWatchEventKinds/ENTRY_MODIFY StandardWatchEventKinds/ENTRY_DELETE])
+                        (into-array [SensitivityWatchEventModifier/HIGH]))]
+                    {key dir})))]
+      (log config "booted")
+      (loop [keys keys]
+        (let [key (.take watcher)]
+          (if (contains? keys key)
+            (doseq [event (.pollEvents key) :let [fp (str (get keys key) "/" (-> event .context .toString))]]
+              (log config fp))
+          )
+          (.reset key)
+        )
+        (recur keys)
+        )))
+          ; (log config "Running: lein" task (str/join " " args))
+          ; (try
+          ;   (run-task project task args)
+          ;   (log config "Completed.")
+          ;   (catch ExceptionInfo _
+          ;     (log config "Failed."))))))
