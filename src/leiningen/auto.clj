@@ -7,11 +7,8 @@
            [com.sun.nio.file SensitivityWatchEventModifier]
            [java.io File]))
 
-(defn directory-files [dir]
-  (->> (io/file dir) (file-seq) (remove (memfn isDirectory))))
-
-  (defn directory-directories [dir]
-    (->> (io/file dir) (file-seq) (filter (memfn isDirectory))))
+(defn directory-directories [dir]
+  (->> (io/file dir) (file-seq) (filter (memfn isDirectory))))
 
 (defn modified-since [^File file timestamp]
   (> (.lastModified file) timestamp))
