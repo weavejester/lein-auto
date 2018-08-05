@@ -63,6 +63,28 @@
           (:java-source-paths project)
           (:test-paths project)))
 
+(def watchkeys (atom {}))
+
+(defn path-from-event [watchkey evt]
+  (str (get @watchkeys watchkey) "/" (-> evt .context .toString)))
+
+(defn make-watcher [watcher dir]
+  (.register (.toPath dir) watcher
+    (into-array [StandardWatchEventKinds/ENTRY_CREATE
+                StandardWatchEventKinds/ENTRY_MODIFY
+                StandardWatchEventKinds/ENTRY_DELETE])
+    (into-array [SensitivityWatchEventModifier/HIGH])))
+
+(defn add-new-directories [watcher watchkey events]
+  (doseq [evt events
+          :let [dir (io/file (path-from-event watchkey evt))]]
+    (if (and (= (.kind evt) StandardWatchEventKinds/ENTRY_CREATE)
+             (.isDirectory dir))
+      (swap! watchkeys assoc (make-watcher watcher dir) dir))))
+
+(defn modified-files [watchkey events]
+  (map #(path-from-event watchkey %) events))
+
 (defn auto
   "Executes the given task every time a file in the project is modified."
   [project task & args]
@@ -72,30 +94,21 @@
                       (get-in project [:auto task]))
         directories (mapcat subdirectories (:paths config))
         watcher (.newWatchService (FileSystems/getDefault))
-        keys (apply merge
+        new-watchkeys (apply merge
               (for [dir directories]
-                (let [p (.toPath dir)
-                      key (.register p watcher
-                        (into-array [
-                          StandardWatchEventKinds/ENTRY_CREATE
-                          StandardWatchEventKinds/ENTRY_MODIFY
-                          StandardWatchEventKinds/ENTRY_DELETE])
-                        (into-array [SensitivityWatchEventModifier/HIGH]))]
-                    {key dir})))]
+                    {(make-watcher watcher dir) dir}))]
+      (reset! watchkeys new-watchkeys)
       (log config "lein-auto now watching:" (:paths config))
-      (loop [keys keys]
-        (let [key (.take watcher)]
-          (if (contains? keys key)
-            (do
-              (doseq [event (.pollEvents key) :let [fp (str (get keys key) "/" (-> event .context .toString))]]
-                (log config "Changes to:" fp))
-              (log config "Running: lein" task (str/join " " args))
-              (try
-                (run-task project task args)
-                (log config "Completed.")
-                (catch ExceptionInfo _
-                  (log config "Failed.")))
-              (if (.reset key)
-                (recur keys)
-                (recur (dissoc key key))))
-            (recur keys))))))
+      (while true
+        (let [key (.take watcher)
+              events (.pollEvents key)]
+          (add-new-directories watcher key events)
+          (log config "Files changed:" (str/join " " (modified-files key events)))
+          (log config "Running: lein" task (str/join " " args))
+          (try
+            (run-task project task args)
+            (log config "Completed.")
+            (catch ExceptionInfo _
+              (log config "Failed.")))
+          (if (not (.reset key))
+            (swap! watchkeys dissoc key))))))
