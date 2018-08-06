@@ -52,26 +52,32 @@
 (def watch-service
   (delay (.newWatchService (FileSystems/getDefault))))
 
-(defn path-from-event [watchkey evt]
+(defn full-event-path [watchkey evt]
   (str (get @watched-dirs watchkey) "/" (-> evt .context .toString)))
 
+(def watch-event-kinds
+  (into-array [StandardWatchEventKinds/ENTRY_CREATE
+                StandardWatchEventKinds/ENTRY_MODIFY
+                StandardWatchEventKinds/ENTRY_DELETE]))
+
+(def watch-event-modifiers
+  (into-array [SensitivityWatchEventModifier/HIGH]))
+
 (defn watch-dir! [dir]
-  (let [key (.register (.toPath dir) @watch-service
-              (into-array [StandardWatchEventKinds/ENTRY_CREATE
-                          StandardWatchEventKinds/ENTRY_MODIFY
-                          StandardWatchEventKinds/ENTRY_DELETE])
-              (into-array [SensitivityWatchEventModifier/HIGH]))]
+  (let [key (.register (.toPath dir)
+                        @watch-service
+                        watch-event-kinds
+                        watch-event-modifiers)]
     (swap! watched-dirs assoc key dir)))
 
 (defn add-new-directories [watchkey events]
-  (doseq [evt events
-          :let [dir (io/file (path-from-event watchkey evt))]]
+  (doseq [evt events :let [dir (io/file (full-event-path watchkey evt))]]
     (if (and (= (.kind evt) StandardWatchEventKinds/ENTRY_CREATE)
              (.isDirectory dir))
       (watch-dir! dir))))
 
 (defn modified-files [watchkey events]
-  (map #(path-from-event watchkey %) events))
+  (map #(full-event-path watchkey %) events))
 
 (defn auto
   "Executes the given task every time a file in the project is modified."
@@ -84,18 +90,17 @@
         (watch-dir! dir))
       (log config "lein-auto now watching:" (:paths config))
       (while true
-        (let [key (.take @watch-service)
-              events (.pollEvents key)
+        (let [key      (.take @watch-service)
+              events   (.pollEvents key)
               modified (grep (:file-pattern config) (modified-files key events))]
           (add-new-directories key events)
-          (if (not (empty? modified))
-            (do
-              (log config "Files changed:" (str/join ", " modified))
-              (log config "Running: lein" task (str/join " " args))
-              (try
-                (run-task project task args)
-                (log config "Completed.")
-                (catch ExceptionInfo _
-                  (log config "Failed.")))))
-          (if (not (.reset key))
+          (when (seq modified)
+            (log config "Files changed:" (str/join ", " modified))
+            (log config "Running: lein" task (str/join " " args))
+            (try
+              (run-task project task args)
+              (log config "Completed.")
+              (catch ExceptionInfo _
+                (log config "Failed."))))
+          (when-not (.reset key)
             (swap! watched-dirs dissoc key))))))
