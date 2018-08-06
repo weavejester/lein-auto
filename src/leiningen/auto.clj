@@ -3,10 +3,12 @@
             [clojure.string :as str]
             [leiningen.core.main :as main])
   (:import [clojure.lang ExceptionInfo]
+           [java.nio.file FileSystems StandardWatchEventKinds]
+           [com.sun.nio.file SensitivityWatchEventModifier]
            [java.io File]))
 
-(defn directory-files [dir]
-  (->> (io/file dir) (file-seq) (remove (memfn isDirectory))))
+(defn subdirectories [dir]
+  (->> (io/file dir) (file-seq) (filter (memfn isDirectory))))
 
 (defn modified-since [^File file timestamp]
   (> (.lastModified file) timestamp))
@@ -36,30 +38,46 @@
   (binding [main/*exit-process?* false]
     (main/resolve-and-apply project (cons task args))))
 
-(defn add-ending-separator [^String path]
-  (if (.endsWith path File/separator)
-    path
-    (str path File/separator)))
-
-(defn remove-prefix [^String s ^String prefix]
-  (if (.startsWith s prefix)
-    (subs s (.length prefix))
-    s))
-
-(defn show-modified [project files]
-  (let [root  (add-ending-separator (:root project))
-        paths (map #(remove-prefix (str %) root) files)]
-    (str/join ", " paths)))
-
 (def default-config
   {:file-pattern #"\.(clj|cljs|cljx|cljc)$"
-   :wait-time    50
    :log-color    :magenta})
 
 (defn default-paths [project]
   (concat (:source-paths project)
           (:java-source-paths project)
           (:test-paths project)))
+
+(def watched-dirs (atom {}))
+
+(def watch-service
+  (delay (.newWatchService (FileSystems/getDefault))))
+
+(defn full-event-path [watch-key evt]
+  (str (@watched-dirs watch-key) "/" (-> evt .context .toString)))
+
+(def watch-event-kinds
+  (into-array [StandardWatchEventKinds/ENTRY_CREATE
+                StandardWatchEventKinds/ENTRY_MODIFY
+                StandardWatchEventKinds/ENTRY_DELETE]))
+
+(def watch-event-modifiers
+  (into-array [SensitivityWatchEventModifier/HIGH]))
+
+(defn watch-dir! [dir]
+  (let [key (.register (.toPath dir)
+                        @watch-service
+                        watch-event-kinds
+                        watch-event-modifiers)]
+    (swap! watched-dirs assoc key dir)))
+
+(defn add-new-directories [watch-key events]
+  (doseq [evt events :let [dir (io/file (full-event-path watch-key evt))]]
+    (if (and (= (.kind evt) StandardWatchEventKinds/ENTRY_CREATE)
+             (.isDirectory dir))
+      (watch-dir! dir))))
+
+(defn modified-files [watch-key events]
+  (map #(full-event-path watch-key %) events))
 
 (defn auto
   "Executes the given task every time a file in the project is modified."
@@ -68,19 +86,21 @@
                       {:paths (default-paths project)}
                       (get-in project [:auto :default])
                       (get-in project [:auto task]))]
-    (loop [time 0]
-      (Thread/sleep (:wait-time config))
-      (if-let [files (->> (mapcat directory-files (:paths config))
-                          (grep (:file-pattern config))
-                          (filter #(modified-since % time))
-                          (seq))]
-        (let [time (System/currentTimeMillis)]
-          (log config "Files changed:" (show-modified project files))
-          (log config "Running: lein" task (str/join " " args))
-          (try
-            (run-task project task args)
-            (log config "Completed.")
-            (catch ExceptionInfo _
-              (log config "Failed.")))
-          (recur time))
-        (recur time)))))
+      (doseq [dir (mapcat subdirectories (:paths config))]
+        (watch-dir! dir))
+      (log config "lein-auto now watching:" (:paths config))
+      (while true
+        (let [key      (.take @watch-service)
+              events   (.pollEvents key)
+              modified (grep (:file-pattern config) (modified-files key events))]
+          (add-new-directories key events)
+          (when (seq modified)
+            (log config "Files changed:" (str/join ", " modified))
+            (log config "Running: lein" task (str/join " " args))
+            (try
+              (run-task project task args)
+              (log config "Completed.")
+              (catch ExceptionInfo _
+                (log config "Failed."))))
+          (when-not (.reset key)
+            (swap! watched-dirs dissoc key))))))
