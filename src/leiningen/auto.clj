@@ -52,8 +52,8 @@
 (def watch-service
   (delay (.newWatchService (FileSystems/getDefault))))
 
-(defn full-event-path [watchkey evt]
-  (str (get @watched-dirs watchkey) "/" (-> evt .context .toString)))
+(defn full-event-path [watch-key evt]
+  (str (@watched-dirs watch-key) "/" (-> evt .context .toString)))
 
 (def watch-event-kinds
   (into-array [StandardWatchEventKinds/ENTRY_CREATE
@@ -70,14 +70,14 @@
                         watch-event-modifiers)]
     (swap! watched-dirs assoc key dir)))
 
-(defn add-new-directories [watchkey events]
-  (doseq [evt events :let [dir (io/file (full-event-path watchkey evt))]]
+(defn add-new-directories [watch-key events]
+  (doseq [evt events :let [dir (io/file (full-event-path watch-key evt))]]
     (if (and (= (.kind evt) StandardWatchEventKinds/ENTRY_CREATE)
              (.isDirectory dir))
       (watch-dir! dir))))
 
-(defn modified-files [watchkey events]
-  (map #(full-event-path watchkey %) events))
+(defn modified-files [watch-key events]
+  (map #(full-event-path watch-key %) events))
 
 (defn auto
   "Executes the given task every time a file in the project is modified."
