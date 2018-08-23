@@ -80,7 +80,7 @@
           (try
             (run-task project task args)
             (log config "Completed.")
-            (catch ExceptionInfo _
+            (catch Exception _
               (log config "Failed.")))
           (recur time))
         (recur time)))))
