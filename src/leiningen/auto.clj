@@ -1,18 +1,11 @@
 (ns leiningen.auto
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [leiningen.core.main :as main])
+            [hawk.core :as hawk]
+            [leiningen.core.main :as main]
+            [medley.core :as m])
   (:import [clojure.lang ExceptionInfo]
            [java.io File]))
-
-(defn directory-files [dir]
-  (->> (io/file dir) (file-seq) (remove (memfn isDirectory))))
-
-(defn modified-since [^File file timestamp]
-  (> (.lastModified file) timestamp))
-
-(defn grep [re coll]
-  (filter #(re-find re (str %)) coll))
 
 (def ansi-codes
   {:reset   "\u001b[0m"
@@ -61,26 +54,33 @@
           (:java-source-paths project)
           (:test-paths project)))
 
+(defn file-filter [{:keys [file-pattern]}]
+  (if (some? file-pattern)
+    (fn [_ {^File f :file}] (and (.isFile f) (re-find file-pattern (str f))))
+    hawk/file?))
+
+(defn file-changed [queue]
+  (fn [_ {:keys [file]}] (swap! queue conj file)))
+
 (defn auto
   "Executes the given task every time a file in the project is modified."
   [project task & args]
-  (let [config (merge default-config
-                      {:paths (default-paths project)}
-                      (get-in project [:auto :default])
-                      (get-in project [:auto task]))]
-    (loop [time 0]
-      (Thread/sleep (:wait-time config))
-      (if-let [files (->> (mapcat directory-files (:paths config))
-                          (grep (:file-pattern config))
-                          (filter #(modified-since % time))
-                          (seq))]
-        (let [time (System/currentTimeMillis)]
-          (log config "Files changed:" (show-modified project files))
-          (log config "Running: lein" task (str/join " " args))
-          (try
-            (run-task project task args)
-            (log config "Completed.")
-            (catch Exception _
-              (log config "Failed.")))
-          (recur time))
-        (recur time)))))
+  (let [config    (merge default-config
+                         {:paths (default-paths project)}
+                         (get-in project [:auto :default])
+                         (get-in project [:auto task]))
+        queue     (atom (m/queue))
+        wait-time (:wait-time config)]
+    (hawk/watch! [{:paths   (:paths config)
+                   :filter  (file-filter config)
+                   :handler (file-changed queue)}])
+    (while true
+      (Thread/sleep wait-time)
+      (when-let [files (seq (m/deref-reset! queue (m/queue)))]
+        (log config "Files changed:" (show-modified project files))
+        (log config "Running: lein" task (str/join " " args))
+        (try
+          (run-task project task args)
+          (log config "Completed.")
+          (catch Exception _
+            (log config "Failed.")))))))
